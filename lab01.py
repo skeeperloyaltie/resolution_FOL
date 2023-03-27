@@ -16,40 +16,39 @@ def read_cnf_file(file_path):
     return clauses
 
 
-def resolve(c1, c2):
-    """Performs the resolution operation on two clauses."""
-    resolvents = []
-    for literal1 in c1:
-        for literal2 in c2:
-            if literal1 == "!" + literal2 or literal2 == "!" + literal1:
-                # Found complementary literals, so perform the resolution operation
-                resolvent = list(set(c1) | set(c2))  # Union of the two clauses
-                if literal1 in resolvent:
-                    resolvent.remove(literal1)
-                if literal2.replace("!", "") in resolvent:
-                    resolvent.remove(literal2.replace("!", ""))
-                resolvents.append(resolvent)
-    return resolvents
+import copy
 
-
+def resolve(clause1, clause2):
+    new_clause = []
+    for literal1 in clause1:
+        for literal2 in clause2:
+            if literal1 == literal2 or literal1 == f"!{literal2}" or f"!{literal1}" == literal2:
+                new_clause.extend([literal for literal in clause1+clause2 if literal != literal1 and literal != literal2])
+                new_clause = list(set(new_clause))
+                if not new_clause:
+                    new_clause.append('')  # placeholder for an empty clause
+                return new_clause
+    return None
 
 def resolve_all(clauses):
-    """Applies the resolution rule to all possible pairs of clauses."""
     new_clauses = copy.deepcopy(clauses)
     while True:
-        prev_clauses = copy.deepcopy(new_clauses)
-        for i in range(len(prev_clauses)):
-            for j in range(i+1, len(prev_clauses)):
-                resolvents = resolve(prev_clauses[i], prev_clauses[j])
-                for resolvent in resolvents:
-                    if resolvent not in new_clauses and resolvent not in prev_clauses:
-                        new_clauses.append(resolvent)
-        if new_clauses == prev_clauses:
-            break
-    if [] in new_clauses:
-        return "no"
-    else:
-        return "yes"
+        n = len(new_clauses)
+        pairs = [(i, j) for i in range(n) for j in range(i+1, n)]
+        new_clauses = [clause for clause in new_clauses if clause]  # remove any empty clauses
+        for i, j in pairs:
+            resolvents = resolve(new_clauses[i], new_clauses[j])
+            if resolvents is not None:
+                if "" in resolvents:  # contradiction found
+                    return "no"
+                new_clauses.append(resolvents)
+        if new_clauses == clauses:
+            return "yes"
+        clauses = copy.deepcopy(new_clauses)
+
+
+        clauses = new_clauses
+
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
