@@ -1,59 +1,81 @@
 import sys
 
-def is_clause_satisfied(clause, model):
-    for literal in clause:
-        if literal[0] == '!':
-            if literal[1:] in model:
-                return True
-        else:
-            if '!' + literal in model:
-                return True
+def parse_cnf(cnf_file):
+    with open(cnf_file) as f:
+        lines = f.readlines()
+
+    predicates = set()
+    variables = set()
+    constants = set()
+    functions = set()
+    clauses = []
+
+    for line in lines:
+        if line.startswith('c') or line.startswith('p'):
+            continue
+        clause = []
+        terms = line.strip().split(' ')
+        for term in terms:
+            if term == '0':
+                break
+            if term.startswith('-'):
+                clause.append((False, parse_term(term[1:], predicates, variables, constants, functions)))
+            else:
+                clause.append((True, parse_term(term, predicates, variables, constants, functions)))
+        clauses.append(clause)
+
+    return predicates, variables, constants, functions, clauses
+
+def parse_term(term, predicates, variables, constants, functions):
+    if term.islower():
+        variables.add(term)
+        return term
+    elif term[0].isupper():
+        constants.add(term)
+        return term
+    elif '(' in term:
+        function, variables_str = term.split('(')
+        variables_str = variables_str[:-1]
+        variables_list = variables_str.split(',')
+        variables.update(variables_list)
+        functions.add(function)
+        return (function, variables_list)
+    else:
+        raise ValueError('Invalid term: {}'.format(term))
+
+def is_satisfiable(predicates, variables, constants, functions, clauses):
+    for variable_assignment in _generate_variable_assignments(variables, constants):
+        if all(_eval_clause(clause, variable_assignment) for clause in clauses):
+            return True
     return False
 
-def is_satisfiable(kb):
-    model = {}
+def _generate_variable_assignments(variables, constants):
+    num_vars = len(variables)
+    for i in range(2 ** num_vars):
+        binary_str = bin(i)[2:].rjust(num_vars, '0')
+        var_assignments = dict(zip(variables, binary_str))
+        var_assignments.update({constant: '1' for constant in constants})
+        yield var_assignments
 
-    while True:
-        is_kb_satisfied = True
+def _eval_clause(clause, variable_assignment):
+    for term in clause:
+        term_value = term[0]
+        if term[0] in variable_assignment:
+            term_value = variable_assignment[term[0]]
+        elif term[0] in variable_assignment.values():
+            term_value = list(variable_assignment.keys())[list(variable_assignment.values()).index(term[0])]
+        else:
+            term_value = term[0]
+        if not term[2] and term_value == '1':
+            return True
+        elif term[2] and term_value == '0':
+            return True
+    return False
 
-        for clause in kb:
-            if not is_clause_satisfied(clause, model):
-                is_kb_satisfied = False
-                for literal in clause:
-                    if literal not in model and '!' + literal not in model:
-                        model[literal] = True
-                        break
-
-        if is_kb_satisfied:
-            return "Yes"
-
-        for literal in model:
-            if literal[0] == '!':
-                if literal[1:] in model:
-                    return "No"
-            else:
-                if '!' + literal in model:
-                    return "No"
-
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python fol_resolution.py <cnf_file>")
-        return
-
-    filename = sys.argv[1]
-    with open(filename) as f:
-        # Parse the predicates, variables, constants, and functions used in the knowledge base
-        # (Not implemented in this example)
-
-        # Parse the clauses in the knowledge base
-        kb = []
-        for line in f:
-            if not line.startswith("Predicates:") and not line.startswith("Variables:") and not line.startswith("Constants:") and not line.startswith("Functions:"):
-                literals = line.strip().split()
-                kb.append(literals)
-
-    result = is_satisfiable(kb)
-    print(result)
-
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    cnf_file = sys.argv[1]
+    predicates, variables, constants, functions, clauses = parse_cnf(cnf_file)
+    if is_satisfiable(predicates, variables, constants, functions, clauses):
+        print("The CNF is satisfiable.")
+    else:
+        print("The CNF is unsatisfiable.")
