@@ -36,10 +36,13 @@ def resolve_all(clauses_):
     while True:
         n = len(new_clauses)
         pairs = [(i, j) for i in range(n) for j in range(i + 1, n)]
+        print(pairs)
         new_clauses = [clause for clause in new_clauses if clause]  # remove any empty clauses
+        print(new_clauses)
         for i, j in pairs:
             resolvers = resolve(new_clauses[i], new_clauses[j])
             if resolvers is not None:
+                print(resolvers)
                 if "" in resolvers:  # contradiction found
                     return "no"
                 new_clauses.append(resolvers)
